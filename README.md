@@ -1,2 +1,2 @@
 # LTL and CTL modal checking of a delivery robot. 
-Homework text is in the PDF.
+2018 Logic for Computer Science homework. Homework text is in the PDF.
