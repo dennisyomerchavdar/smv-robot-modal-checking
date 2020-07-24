@@ -1,0 +1,221 @@
+MODULE robot(button1, button2, button3, robotbutton1, robotbutton2, robotbutton3)
+	VAR
+		lid : boolean;
+		prevlid : boolean;
+		prevprevlid : boolean;
+		moving : boolean;
+		sensor : boolean;
+		prevsensor : boolean;
+		prevprevsensor : boolean;
+		prevprevprevsensor : boolean;
+		location : { at1, btw12, at2, btw23, at3 };
+		prevlocation : { at1, btw12, at2, btw23, at3 };
+		direction: {forward, backward};
+		prevrobotbutton1 : boolean;
+		prevrobotbutton2 : boolean;
+		prevrobotbutton3 : boolean;
+		lastvisit: {1,2,3};
+		lastlastvisit: {1,2,3};
+
+	ASSIGN
+		init(lid) := FALSE;
+		init(prevlid) := FALSE;
+		init(prevprevlid) := FALSE;
+		init(moving) := FALSE;
+		init(sensor) := FALSE;
+		init(prevsensor) := FALSE;
+		init(prevprevsensor) := FALSE;
+		init(prevprevprevsensor) := FALSE;	
+		init(location) := at1;
+		init(direction) := forward;
+		init(prevrobotbutton1) := FALSE;
+		init(prevrobotbutton2) := FALSE;
+		init(prevrobotbutton3) := FALSE;
+		init(lastvisit) := 3;
+		init(lastlastvisit) :=2;
+
+
+
+		next(lid) := case
+						lid & (sensor | prevsensor) : TRUE;
+						(location = at1 | location = at2 | location = at3)& lid & !(prevprevlid & prevlid) : TRUE;
+						(location = at1 | location = at2 | location = at3)& lid & !(prevprevlid & prevlid) : TRUE;
+						lid & prevlid & prevprevlid : FALSE;
+						robotbutton1 & !prevrobotbutton1: TRUE;
+						robotbutton2 & !prevrobotbutton2: TRUE;
+						robotbutton3 & !prevrobotbutton3: TRUE;
+						button1!=off & location = at1 : TRUE;
+						button2!=off & location = at2 : TRUE;
+						button3!=off & location = at3 : TRUE;
+						TRUE: FALSE;
+					 esac;
+		next(prevlid) := lid;
+		next(prevprevlid) := prevlid;
+		next(moving) := case
+							!go1 & !go2 & !go3 : FALSE;
+							lid | next(lid) : FALSE;
+							prevlid = TRUE & lid = FALSE : FALSE;
+							go1 & location=at1 : FALSE;
+							go2 & location=at2 : FALSE;
+							go3 & location=at3 : FALSE;
+							TRUE : TRUE;
+						esac;
+
+		next(sensor) := case
+							!next(lid) : FALSE;
+							prevsensor | prevprevsensor | prevprevprevsensor :FALSE;
+							next(lid) : {TRUE,FALSE};
+						esac;
+		next(prevsensor) := sensor;
+		next(prevprevsensor) := prevsensor;
+		next(prevprevprevsensor) := prevprevsensor;
+		next(location) := case
+							!next(moving) : location;
+							direction=forward & location=at1 : btw12;
+							direction=forward & location=at2 : btw23;
+							direction=backward & location=at3 : btw23;
+							direction=backward & location=at2 : btw12;
+
+							direction=forward & location=btw12 & !(prevlocation=btw12) : {at2 ,btw12};
+							direction=forward & location=btw12 & (prevlocation=btw12) : {at2};
+
+							direction=backward & location=btw12 & !(prevlocation=btw12) : {at1 ,btw12};
+							direction=backward & location=btw12 & (prevlocation=btw12) : {at1};
+
+							direction=forward & location=btw23 & !(prevlocation=btw23) : {at3 ,btw23};
+							direction=forward & location=btw23 & (prevlocation=btw23) : {at3}; 
+
+							direction=backward & location=btw23 & !(prevlocation=btw23) : {at2 ,btw23};
+							direction=backward & location=btw23 & (prevlocation=btw23) : {at2};
+							TRUE: location;
+
+
+						  esac;
+		next(prevlocation) := location;
+		next(direction) := case
+								location=at2 & go3 & go1 : direction;
+								location=at1 : forward;
+								location=at3 : backward;
+								location=at2 & go3 : forward;
+								location=at2 & go1 : backward;
+
+								location=btw12 & go1 & (go2 | go3) : direction;
+								location=btw12 & go2 : forward;
+								location=btw12 & go3 : forward;
+								location=btw12 & go1 : backward;
+
+								location=btw23 & go3 & (go1 | go2) : direction;
+								location=btw23 & go2 : backward;
+								location=btw23 & go1 : backward;
+								location=btw23 & go3 : forward;
+
+								TRUE : direction;
+						   esac;
+		next(prevrobotbutton1) := robotbutton1;
+		next(prevrobotbutton2) := robotbutton2;
+		next(prevrobotbutton3) := robotbutton3;
+		next(lastvisit) := case
+							location= at1 & lid : 1;
+							location= at2 & lid : 2;
+							location= at3 & lid : 3;
+							TRUE: lastvisit;
+						   esac;
+		next(lastlastvisit) := case
+							    location= at1 & lid : lastvisit;
+							    location= at2 & lid : lastvisit;
+							    location= at3 & lid : lastvisit;
+							    TRUE: lastlastvisit;
+						       esac;
+	DEFINE
+		go1:= button1!=off | robotbutton1;
+		go2:= button2!=off | robotbutton2;
+		go3:= button3!=off | robotbutton3;
+
+
+MODULE office(robotlocation, robotlid, robotmoving, identity)
+	VAR
+		office_button : { on, blink, off};
+		robot_button : boolean;
+	ASSIGN
+		init(office_button) := off;
+		init(robot_button) := FALSE;
+
+		next(office_button) := case
+								onpoint: off;
+								(office_button=blink | office_button=on) & robotmoving : blink;
+								(office_button=blink | office_button=on) & !robotmoving : on;
+								!onpoint & robotmoving : {off,blink};
+								!onpoint & !robotmoving : {off,on};
+							   esac;
+		next(robot_button) := case
+								onpoint: FALSE;
+								robot_button & !onpoint : TRUE;
+								!robot_button & !onpoint : {TRUE,FALSE};
+							  esac;
+								
+	DEFINE
+		onpoint := case
+					robotlocation=at1 & identity=1 : TRUE;
+					robotlocation=at2 & identity=2 : TRUE;
+					robotlocation=at3 & identity=3 : TRUE;
+					TRUE: FALSE;
+				   esac;
+
+
+
+
+MODULE main()
+	VAR
+		robot : robot(office1.office_button, office2.office_button, 
+			          office3.office_button, office1.robot_button, 
+			          office2.robot_button, office3.robot_button);
+		office1 : office(robot.location, next(robot.lid), next(robot.moving), 1);
+		office2 : office(robot.location, next(robot.lid), next(robot.moving), 2);
+		office3 : office(robot.location, next(robot.lid), next(robot.moving), 3);
+	LTLSPEC
+		G( X robot.lid & (robot.sensor | X robot.sensor) -> X robot.lid);--4 lid can only close up after 2 consecutive false sensors.
+	LTLSPEC
+		G(robot.lid ->  F(!robot.sensor & X !robot.sensor));   --5 if lid is open, sensor will eventually be false consecutively 2 times.
+	LTLSPEC
+		G(office1.office_button !=off -> (robot.moving & office1.office_button=blink ) | (!robot.moving & office1.office_button=on ) ); --3
+	LTLSPEC
+		G(office2.office_button !=off -> (robot.moving & office2.office_button=blink ) | (!robot.moving & office2.office_button=on ) ); -- 3
+	LTLSPEC
+		G(office3.office_button !=off -> (robot.moving & office3.office_button=blink ) | (!robot.moving & office3.office_button=on ) ); -- 3
+	LTLSPEC
+		G( !robot.lid & X(robot.lid & (robot.location= at1 | robot.location = at2 | robot.location =at3)) -> X robot.lid & X X robot.lid & X X X robot.lid);  --2
+	LTLSPEC
+		G(office1.office_button !=off -> (office1.office_button !=off U (robot.location=at1 & robot.lid))  ); --1
+	LTLSPEC
+		G(office1.office_button !=off -> F(robot.location=at1) ); --6
+	LTLSPEC
+		G(robot.lid & (robot.location=at1) -> (!robot.moving & (office1.office_button=off) & (office1.robot_button=FALSE))); --7
+	LTLSPEC
+		G(robot.lid & X !robot.lid -> ! X X robot.moving); --8
+	LTLSPEC
+		G(robot.moving & X robot.moving & X X robot.moving -> (robot.location = at1 & X (robot.location = btw12) -> X X(robot.location=btw12 | robot.location=at2)) ); --9
+	LTLSPEC
+		G(robot.moving & X robot.moving & X X robot.moving -> (robot.location = btw12 & X (robot.location = btw12) -> X X(robot.location=at2 | robot.location=at1) )); --9
+	LTLSPEC
+		G(!robot.lid -> !robot.sensor ); --10
+	LTLSPEC
+		G( office1.office_button=off & !office1.robot_button & office2.office_button=off & !office2.robot_button & office3.office_button=off & !office3.robot_button -> !robot.moving ); --11
+	LTLSPEC
+		G( robot.location!= at1 & robot.location != at2 & robot.location!= at3 -> (X(robot.direction=forward) & robot.direction= forward) | (X(robot.direction=backward) & robot.direction= backward) ); --12
+	LTLSPEC
+		G( robot.location=at2 & (office1.office_button!=off | office1.robot_button) & (office3.office_button!=off | office3.robot_button) -> (X(robot.direction=forward) & robot.direction= forward) | (X(robot.direction=backward) & robot.direction= backward) ); --13
+	LTLSPEC
+		G( robot.location=at1 & (office1.office_button!=off | office1.robot_button) -> (!robot.moving U robot.lid)); --14
+	CTLSPEC
+		EG((office1.office_button!=off | office1.robot_button) & (office3.office_button!=off | office3.robot_button) -> A[ robot.location!=at3 U robot.location=at1]); -- 15
+	CTLSPEC
+		EG((office1.office_button!=off | office1.robot_button) & (office3.office_button!=off | office3.robot_button) -> A[ robot.location!=at1 U robot.location=at3]); --16
+
+
+
+
+  --lid    T T T T T T T T F
+  --sensor T F T F T T F F x
+  --lid    T T T T F T T T F
+  --sensor F T F F F F F F F
+     --    2 3 4 5 6
